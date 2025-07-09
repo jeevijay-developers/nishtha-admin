@@ -13,24 +13,35 @@ const Page = () => {
   const [deleting, setDeleting] = useState(false);
 
   // Fetch galleries from API
-  useEffect(() => {
-    const fetchGalleries = async () => {
-      try {
-        setLoading(true);
-        const data = await getGallery();
-        console.log('Fetched galleries:', data);
-        
-        setGalleries(data);
-      } catch (err) {
-        console.error('Error fetching galleries:', err);
-        setError('Failed to fetch galleries. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchGalleries = async () => {
+    try {
+      setLoading(true);
+      const data = await getGallery();
+      // console.log('Fetched galleries:', data);
+      
+      setGalleries(data);
+    } catch (err) {
+      console.error('Error fetching galleries:', err);
+      setError('Failed to fetch galleries. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchGalleries();
   }, []);
+
+  // Listen for gallery created event to refresh the list
+  useEffect(() => {
+    const handleGalleryCreated = () => {
+      fetchGalleries();
+    };
+
+    window.addEventListener('galleryCreated', handleGalleryCreated);
+    return () => window.removeEventListener('galleryCreated', handleGalleryCreated);
+  }, []);
+
 
   // Keyboard support for modal
   useEffect(() => {
@@ -68,6 +79,7 @@ const Page = () => {
       
       // Show success message
       toast.success('Gallery deleted successfully');
+      
     } catch (error) {
       console.error('Error deleting gallery:', error);
       toast.error('Failed to delete gallery. Please try again.');

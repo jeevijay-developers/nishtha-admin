@@ -12,6 +12,11 @@ const Navbar = () => {
     setShowModal(true);
   };
 
+  const handleGallerySuccess = () => {
+    // Dispatch custom event to notify page.js to refresh galleries
+    window.dispatchEvent(new CustomEvent('galleryCreated'));
+  };
+
   return (
     <nav className="fixed w-full bg-white shadow-md border-b border-gray-200 py-2">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -56,7 +61,11 @@ const Navbar = () => {
         </div>
       </div>
       {showModal && (
-        <GalleryModal isOpen={showModal} onClose={() => setShowModal(false)} />
+        <GalleryModal 
+          isOpen={showModal} 
+          onClose={() => setShowModal(false)} 
+          onSuccess={handleGallerySuccess}
+        />
       )}
     </nav>
   );
