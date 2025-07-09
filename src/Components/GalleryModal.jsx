@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from 'react';
-import { FaTimes, FaPlus } from 'react-icons/fa';
+import { FaTimes, FaPlus, FaTrash } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import apiClient from '@/server/config';
+import { deleteImage } from '@/server/server';
 
 export default function GalleryModal({ isOpen, onClose, initialData = null }) {
   const [formData, setFormData] = useState({
@@ -57,8 +58,37 @@ export default function GalleryModal({ isOpen, onClose, initialData = null }) {
     });
   };
 
+  // Delete individual image from gallery
+  const handleDeleteImage = async (image) => {
+    if (!initialData || !initialData._id || !image.public_id) {
+      toast.error('Cannot delete this image');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await deleteImage(initialData._id, image.public_id);
+      
+      // Remove from preview list
+      setPreviewImages(prev => prev.filter(img => img.public_id !== image.public_id));
+      
+      toast.success('Image deleted successfully');
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast.error('Failed to delete image. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const removeImage = (index) => {
     const imageToRemove = previewImages[index];
+    
+    // Handle deletion of existing image via API
+    if (!imageToRemove.isNew && initialData && initialData._id && imageToRemove.public_id) {
+      handleDeleteImage(imageToRemove);
+      return;
+    }
     
     if (imageToRemove.isNew) {
       // Remove from selectedImages array
@@ -116,7 +146,7 @@ export default function GalleryModal({ isOpen, onClose, initialData = null }) {
       toast.success(
         initialData 
           ? 'Gallery updated successfully!' 
-          : 'Gallery created successfully!'
+          : 'Gallery added successfully!'
       );
       
       // Reset form and close modal
@@ -211,13 +241,31 @@ export default function GalleryModal({ isOpen, onClose, initialData = null }) {
                         type="button"
                         onClick={() => removeImage(index)}
                         className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 text-xs hover:bg-red-600 focus:outline-none opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Delete image"
                       >
                         <FaTimes className="h-3 w-3" />
                       </button>
-                      {image.isNew && (
+                      {image.isNew ? (
                         <div className="absolute bottom-1 left-1 bg-green-500 text-white text-xs px-1 rounded">
                           New
                         </div>
+                      ) : (
+                        initialData && (
+                          <div className="absolute bottom-1 left-1 bg-blue-500 text-white text-xs px-1 rounded">
+                            Saved
+                          </div>
+                        )
+                      )}
+                      {!image.isNew && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteImage(image)}
+                          disabled={isLoading}
+                          className="absolute bottom-1 right-1 bg-red-500 text-white rounded p-1 text-xs hover:bg-red-600 focus:outline-none opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Delete from gallery"
+                        >
+                          <FaTrash className="h-3 w-3" />
+                        </button>
                       )}
                     </div>
                   ))}
@@ -255,10 +303,10 @@ export default function GalleryModal({ isOpen, onClose, initialData = null }) {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  {initialData ? 'Updating...' : 'Creating...'}
+                  Adding...
                 </span>
               ) : (
-                initialData ? 'Update Gallery' : 'Create Gallery'
+                initialData ? 'Update Gallery' : 'Add Gallery'
               )}
             </button>
           </div>

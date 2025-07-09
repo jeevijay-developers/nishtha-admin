@@ -1,7 +1,9 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { FaEye, FaTimes, FaImage } from 'react-icons/fa';
+import { FaEye, FaTimes, FaImage, FaTrash } from 'react-icons/fa';
 import { MdDeleteOutline, MdPhotoLibrary } from 'react-icons/md';
+import { toast } from 'react-hot-toast';
+import { deleteImage } from '@/server/server';
 
 const GalleryCard = ({ 
   gallery,
@@ -10,6 +12,9 @@ const GalleryCard = ({
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [imageLoading, setImageLoading] = useState(true);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [imageToDelete, setImageToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Keyboard navigation
   useEffect(() => {
@@ -73,11 +78,13 @@ const GalleryCard = ({
 
   const handleViewDetails = () => {
     setIsViewModalOpen(true);
+    document.body.style.overflow = 'hidden';
   };
 
   const handleCloseModal = () => {
     setIsViewModalOpen(false);
     setSelectedImageIndex(0);
+    document.body.style.overflow = 'unset';
   };
 
   const handleImageClick = (index) => {
@@ -107,31 +114,85 @@ const GalleryCard = ({
     setImageLoading(false);
   };
 
+  const handleDeleteImage = async (publicId, index) => {
+    if (!publicId) {
+      toast.error('Cannot delete image: Missing public_id');
+      return;
+    }
+
+    // Check if this is the last image - prevent deletion
+    if (gallery.images.length <= 1) {
+      toast.error('Cannot delete the last image in a gallery');
+      return;
+    }
+
+    // Store the image info for deletion and show confirmation modal
+    setImageToDelete({ publicId, index });
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteImage = async () => {
+    if (!imageToDelete) return;
+
+    try {
+      setDeleting(true);
+      await deleteImage(gallery._id, imageToDelete.publicId);
+      
+      // Update state locally to remove the image
+      const updatedImages = [...gallery.images];
+      updatedImages.splice(imageToDelete.index, 1);
+      gallery.images = updatedImages;
+      
+      // If the deleted image was the current one, reset to the first image
+      if (selectedImageIndex === imageToDelete.index) {
+        setSelectedImageIndex(0);
+      } else if (selectedImageIndex > imageToDelete.index) {
+        // If the deleted image was before the current one, adjust index
+        setSelectedImageIndex(selectedImageIndex - 1);
+      }
+      
+      toast.success('Image deleted successfully');
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast.error('Failed to delete image. Please try again.');
+    } finally {
+      setShowDeleteConfirm(false);
+      setImageToDelete(null);
+    }
+  };
+
+  const cancelDeleteImage = () => {
+    setShowDeleteConfirm(false);
+    setImageToDelete(null);
+  };
+
+  const deleteIndividualImage = async (image) => {
+    try {
+      if (!gallery._id || !image.public_id) {
+        toast.error('Cannot delete this image');
+        return;
+      }
+
+      // Store the image info for deletion and show confirmation modal
+      setImageToDelete({ publicId: image.public_id, index: gallery.images.findIndex(img => img.public_id === image.public_id) });
+      setShowDeleteConfirm(true);
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast.error('Failed to delete image. Please try again.');
+    }
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden border border-gray-200">
+    <div className={`bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden border border-gray-200`}>
       {/* Gallery Thumbnail */}
-      <div className="relative h-48 bg-gray-200 cursor-pointer" onClick={handleViewDetails}>
+      <div className="h-48 bg-gray-200 cursor-pointer" onClick={handleViewDetails}>
         <img
           src={gallery.images?.[0]?.url || '/placeholder-gallery.jpg'}
           alt={gallery.title}
-          className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-          onError={(e) => {
-            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDQwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNzUgNzVIMjI1VjEyNUgxNzVWNzVaIiBmaWxsPSIjREREREREIi8+CjxwYXRoIGQ9Ik0xODcuNSA5My43NUwyMDYuMjUgMTEyLjVMMjEyLjUgMTA2LjI1TDIwMCAxMDBMMjEyLjUgODcuNUwyMDYuMjUgODEuMjVMMTg3LjUgMTAwVjkzLjc1WiIgZmlsbD0iI0NDQ0NDQyIvPgo8L3N2Zz4K';
-          }}
-        />
-
-        {/* Image Count Badge */}
-        {gallery.images && gallery.images.length > 1 && (
-          <div className="absolute top-3 right-3 bg-black/70 text-white px-2 py-1 rounded-full text-xs flex items-center gap-1">
-            <FaImage className="w-3 h-3" />
-            <span>{gallery.images.length}</span>
-          </div>
-        )}
-        
-        {/* Hover Overlay */}
-        <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
-          <FaEye className="text-white opacity-0 hover:opacity-100 transition-opacity duration-300 text-2xl" />
-        </div>
+          className={`w-full h-full object-cover transition-transform duration-300 ${
+            isViewModalOpen ? '' : 'hover:scale-105'
+          }`}
+        />        
       </div>
 
       {/* Card Content */}
@@ -173,7 +234,7 @@ const GalleryCard = ({
 
       {/* Gallery Modal */}
       {isViewModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 sm:p-4">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/80 p-2 sm:p-4">
           <div className="w-full max-w-6xl max-h-[95vh] overflow-hidden rounded-lg bg-white shadow-xl">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-gray-200 p-4 sm:p-6">
@@ -202,7 +263,7 @@ const GalleryCard = ({
                       onTouchEnd={handleTouchEnd}
                     >
                       {imageLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gray-200 z-10">
+                        <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ff8547]"></div>
                         </div>
                       )}
@@ -260,12 +321,11 @@ const GalleryCard = ({
                   {/* Thumbnail Grid */}
                   {gallery.images.length > 1 && (
                     <div className="mb-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">All Photos</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3">All Photos ({gallery.images.length})</h3>
                       <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
                         {gallery.images.map((image, index) => (
-                          <button
+                          <div
                             key={index}
-                            onClick={() => handleImageClick(index)}
                             className={`relative group aspect-square overflow-hidden rounded-lg ${
                               selectedImageIndex === index 
                                 ? 'ring-2 ring-[#ff8547]' 
@@ -275,19 +335,31 @@ const GalleryCard = ({
                             <img
                               src={image.url}
                               alt={`Thumbnail ${index + 1}`}
-                              className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
+                              className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110 cursor-pointer"
+                              onClick={() => handleImageClick(index)}
                               onError={(e) => {
                                 e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDQwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNzUgNzVIMjI1VjEyNUgxNzVWNzVaIiBmaWxsPSIjREREREREIi8+CjxwYXRoIGQ9Ik0xODcuNSA5My43NUwyMDYuMjUgMTEyLjVMMjEyLjUgMTA2LjI1TDIwMCAxMDBMMjEyLjUgODcuNUwyMDYuMjUgODEuMjVMMTg3LjUgMTAwVjkzLjc1WiIgZmlsbD0iI0NDQ0NDQyIvPgo8L3N2Zz4K';
                               }}
                             />
-                          </button>
+                            {/* Delete Button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteImage(image.public_id, index);
+                              }}
+                              className="absolute top-0 right-0 bg-red-500 text-white rounded-bl-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20"
+                              title="Delete image"
+                            >
+                              <MdDeleteOutline size={16} />
+                            </button>
+                          </div>
                         ))}
                       </div>
                     </div>
                   )}
 
                   {/* Gallery Info */}
-                  <div className="border-t border-gray-200 pt-4">
+                  <div className="border-t border-gray-200 py-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="font-medium text-gray-700">Total Photos:</span>
@@ -324,6 +396,43 @@ const GalleryCard = ({
                   className="px-4 py-2 text-sm font-medium text-white bg-[#ff8547] border border-transparent rounded-md hover:bg-[#e67a40] focus:outline-none focus:ring-2 focus:ring-[#ff8547]/50 transition-colors duration-200"
                 >
                   Delete Gallery
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <div className="flex items-center mb-4">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-gray-900">Delete Image</h3>
+                  <p className="text-sm text-gray-600">Are you sure you want to delete this image? This action cannot be undone.</p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={cancelDeleteImage}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500/50 transition-colors duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteImage}
+                  disabled={!deleting}
+                  className={`px-4 py-2 text-sm font-medium text-white ${deleting ? 'bg-red-700' : 'bg-red-600'} border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-colors duration-200`}
+                >
+                  {deleting ? 'Deleting...' : 'Delete'}
                 </button>
               </div>
             </div>
