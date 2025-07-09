@@ -1,14 +1,19 @@
 "use client";
 import Image from 'next/image';
+import GalleryModal from './GalleryModal';
+import { useState } from 'react';
 
 const Navbar = () => {
+
+  const [showModal, setShowModal] = useState(false);
+
   const handleAddGallery = () => {
     // Add your gallery functionality here
-    console.log('Add Gallery clicked');
+    setShowModal(true);
   };
 
   return (
-    <nav className="bg-white shadow-md border-b border-gray-200 py-2">
+    <nav className="fixed w-full bg-white shadow-md border-b border-gray-200 py-2">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo Section */}
@@ -50,6 +55,9 @@ const Navbar = () => {
           </div>
         </div>
       </div>
+      {showModal && (
+        <GalleryModal isOpen={showModal} onClose={() => setShowModal(false)} />
+      )}
     </nav>
   );
 };
