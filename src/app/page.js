@@ -244,7 +244,7 @@ const Page = () => {
                 <div className="ml-4">
                   <h3 className="text-lg font-medium text-gray-900">Delete Gallery</h3>
                   <p className="text-sm text-gray-600">
-                    Are you sure you want to delete "{galleryToDelete?.title}" gallery? This action cannot be undone and will delete all images in this gallery.
+                    Are you sure you want to delete &quot;{galleryToDelete?.title}&quot; gallery? This action cannot be undone and will delete all images in this gallery.
                   </p>
                 </div>
               </div>
