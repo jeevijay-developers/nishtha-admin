@@ -234,7 +234,7 @@ const GalleryCard = ({
 
       {/* Gallery Modal */}
       {isViewModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/80 p-2 sm:p-4">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-2 sm:p-4">
           <div className="w-full max-w-6xl max-h-[95vh] overflow-hidden rounded-lg bg-white shadow-xl">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-gray-200 p-4 sm:p-6">
